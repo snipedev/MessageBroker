@@ -9,17 +9,22 @@ var app = builder.Build();
 
 app.UseHttpsRedirection();
 
+
+///Topics
+//post
 app.MapPost("api/topics",async(AppDbContext context,Topic topic) => {
     await context.Topics.AddAsync(topic);
     await context.SaveChangesAsync();
     return Results.Created($"api/topics/{topic.Id}",topic);
 });
 
+//get
 app.MapGet("api/topics",async(AppDbContext context) => {
     var topics = await context.Topics.ToListAsync();
     return Results.Ok(topics);
 });
 
+//Messages
 app.MapPost("api/topics/{id}/messages",async(AppDbContext context,int id,Message message) => {
     bool topics = await context.Topics.AnyAsync(t => t.Id == id);
     if(!topics)
@@ -76,6 +81,30 @@ app.MapGet("api/subscriptions/{id}/messages",async(AppDbContext context,int id) 
     await context.SaveChangesAsync();
     return Results.Ok(messages);
     
+});
+
+app.MapPost("api/subscriptions/{id}/messages",async(AppDbContext context,int id,int[] confirmations) => {
+    bool subs = await context.Subscriptions.AnyAsync(s => s.Id == id);
+    if(!subs)
+        return Results.NotFound("No subscriber available for that id");
+    
+    if(confirmations.Count() == 0)
+    {
+        return Results.BadRequest();
+    }
+
+    int count = 0;
+    foreach(var i in confirmations)
+    {
+        var msg = context.Messages.FirstOrDefault(m => m.Id == i);
+        if(msg is not null)
+        {
+            msg.MessageStatus = "SENT";
+            count++;
+        }
+    }
+    await context.SaveChangesAsync();
+    return Results.Ok($"Acknowledged {count} of {confirmations.Length} messages");
 });
 
 
